@@ -157,7 +157,7 @@ def show_results(results, title="RESULTADOS"):
             cor = 'yellow'
         else:
             cor = 'green'
-        print(f"  {i:<4d} {name:<48s} {colored(size_str:>10s, cor)}")
+        print(f"  {i:<4d} {name:<48s} {colored(size_str.rjust(10), cor)}")
 
     if len(results) > 25:
         print(colored(f"\n  ... e mais {len(results) - 25} itens", 'dim'))
@@ -184,7 +184,7 @@ def system_cleanup():
     for idx, t in available:
         size_str = format_bytes(t['size'])
         cor = 'red' if t['size'] > 500*1024**2 else 'yellow'
-        print(f"  {idx:<4d} {t['category']:<16s} {t['name']:<34s} {colored(size_str:>10s, cor)}")
+        print(f"  {idx:<4d} {t['category']:<16s} {t['name']:<34s} {colored(size_str.rjust(10), cor)}")
 
     print()
     print(colored("  Digite números separados por vírgula (ex: 1,3,5)", 'dim'))
@@ -235,7 +235,8 @@ def show_disk_space():
             filled = int(bar_len * d['percent'] / 100)
             bar = '█' * filled + '░' * (bar_len - filled)
             cor = 'red' if d['percent'] > 85 else ('yellow' if d['percent'] > 60 else 'green')
-            print(f"  {d['drive']:<10s} {format_bytes(d['total']):>10s} {format_bytes(d['used']):>10s} {format_bytes(d['free']):>10s} {colored(f'{d['percent']:>5.1f}%', cor):>8s}")
+            pct_str = f"{d['percent']:>5.1f}%"
+            print(f"  {d['drive']:<10s} {format_bytes(d['total']):>10s} {format_bytes(d['used']):>10s} {format_bytes(d['free']):>10s} {colored(pct_str, cor):>8s}")
             print(f"  {'':<10s} [{bar}]")
 
     input(colored("\n  Pressione Enter para voltar...", 'dim'))

@@ -62,10 +62,10 @@ def get_cleanup_targets():
         'category': 'Sistema',
     })
 
-   回收站_info = home / '$Recycle.Bin'
+    recycle_path = home / '$Recycle.Bin'
     targets.append({
         'name': 'Lixeira (info)',
-        'path': str(回收站_info),
+        'path': str(recycle_path),
         'category': 'Sistema',
     })
 
