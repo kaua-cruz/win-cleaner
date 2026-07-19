@@ -58,4 +58,4 @@ def colored(text, color='reset', bold=False):
     return f"{bold_code}{color_code}{text}{colors['reset']}"
 
 def clear_screen():
-    os.system('cls' if platform.system() == 'Windows' else 'clear')
+    print('\033[H\033[J', end='', flush=True)
