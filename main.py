@@ -1,20 +1,14 @@
 import os
 import sys
-from utils import (
-    clear_screen, colored, format_bytes, get_disk_usage, enable_ansi
-)
-from scanner import scan_top_level, scan_user_folders, drill_down
-from cleaner import get_cleanup_targets, estimate_sizes, clean_targets
+from utils import colored, format_bytes, enable_ansi
 from orphan_hunter import scan_orphans
-
-
-PROMPT = "  Escolha uma opção: "
+from trash import send_to_trash
 
 
 def print_header():
-    clear_screen()
     print(colored("=" * 52, 'cyan'))
-    print(colored("       WIN-CLEANER — Limpeza do Sistema", 'green', bold=True))
+    print(colored("       WIN-CLEANER — Caçador de Lixo", 'green', bold=True))
+    print(colored("       Programas Desinstalados", 'green', bold=True))
     print(colored("=" * 52, 'cyan'))
     print()
 
@@ -38,212 +32,25 @@ def make_progress():
     return cb
 
 
-def main_menu():
-    while True:
-        print_header()
-        print("  [1] Varredura rápida (pastas do usuário)")
-        print("  [2] Varredura completa (disco ou pasta)")
-    print("  [3] Limpeza de lixo do sistema")
-    print("  [4] Espaço livre nos discos")
-    print("  [5] Caçar lixo de programas desinstalados")
-    print("  [6] Sair")
-    print()
-
-    choice = input(PROMPT).strip()
-
-    if choice == '1':
-        quick_scan()
-    elif choice == '2':
-        full_scan()
-    elif choice == '3':
-        system_cleanup()
-    elif choice == '4':
-        show_disk_space()
-    elif choice == '5':
-        orphan_hunter()
-    elif choice == '6':
-        print(colored("\n  Até mais! 💻", 'green'))
-        sys.exit(0)
-    else:
-        input(colored("  Opção inválida! Pressione Enter...", 'red'))
-
-
-def quick_scan():
+def main():
     print_header()
-    print(colored("  VARREDURA RÁPIDA — Pastas do Usuário\n", 'yellow', bold=True))
-
-    print("  Escaneando...\n")
-    results, _ = scan_user_folders(progress_callback=make_progress())
-    print("\n")
-    show_results(results, title="PASTAS DO USUÁRIO")
-
-    input(colored("\n  Pressione Enter para voltar ao menu...", 'dim'))
-
-
-def full_scan():
-    path = _ask_path()
-    if path is None:
-        return
-
-    print_header()
-    print(colored(f"  VARREDURA COMPLETA — {path}\n", 'yellow', bold=True))
-    print("  Escaneando...\n")
-
-    results = scan_top_level(path, progress_callback=make_progress())
-    print("\n")
-    show_results(results, title=f"CONTEÚDO DE {path.upper()}")
-
-    _drill_loop(path, results)
-
-
-def _ask_path():
-    print_header()
-    default = 'C:\\'
-    path = input(colored(f"  Caminho para escanear [Enter = {default}]: ", 'yellow')).strip()
-    if not path:
-        path = default
-    path = os.path.abspath(path)
-    if not os.path.exists(path):
-        input(colored(f"  Caminho não encontrado: {path}\n  Pressione Enter...", 'red'))
-        return None
-    return path
-
-
-def _drill_loop(base_path, current_results):
-    while True:
-        print()
-        print(colored("  [N]º para ver conteúdo da pasta  |  [V]oltar  |  [M]enu", 'dim'))
-        cmd = input(PROMPT).strip().lower()
-
-        if cmd in ('', 'm', 'menu'):
-            return
-        if cmd == 'v' or cmd == 'voltar':
-            return
-        if cmd.isdigit():
-            idx = int(cmd) - 1
-            if 0 <= idx < len(current_results):
-                sub_path = current_results[idx][0]
-                if os.path.isdir(sub_path):
-                    _enter_folder(sub_path)
-                else:
-                    print(colored("  Não é uma pasta.", 'red'))
-            else:
-                print(colored("  Número inválido.", 'red'))
-        else:
-            print(colored("  Comando inválido.", 'red'))
-
-
-def _enter_folder(path):
-    print_header()
-    print(colored(f"  DRILL DOWN — {path}\n", 'cyan', bold=True))
-    print("  Escaneando...\n")
-    results = scan_top_level(path, progress_callback=make_progress())
-    print("\n")
-    show_results(results, title=f"CONTEÚDO DE {path}")
-
-    _drill_loop(path, results)
-
-
-def show_results(results, title="RESULTADOS"):
-    if not results:
-        print(colored("  Nenhum resultado encontrado.", 'red'))
-        return
-
-    print(colored(f"  {'#':<4s} {'PASTA':<48s} {'TAMANHO':>10s}", 'cyan', bold=True))
-    print(colored("  " + "-" * 64, 'cyan'))
-
-    for i, (path, size) in enumerate(results[:25], 1):
-        name = path if len(path) <= 45 else f"...{path[-42:]}"
-        size_str = format_bytes(size)
-        if size > 2 * 1024**3:
-            cor = 'red'
-        elif size > 500 * 1024**2:
-            cor = 'yellow'
-        else:
-            cor = 'green'
-        print(f"  {i:<4d} {name:<48s} {colored(size_str.rjust(10), cor)}")
-
-    if len(results) > 25:
-        print(colored(f"\n  ... e mais {len(results) - 25} itens", 'dim'))
-
-
-def system_cleanup():
-    print_header()
-    print(colored("  LIMPEZA DE LIXO DO SISTEMA\n", 'yellow', bold=True))
-
-    print("  Calculando tamanho dos alvos...\n")
-    targets = get_cleanup_targets()
-    targets = estimate_sizes(targets)
-
-    available = [(i, t) for i, t in enumerate(targets, 1) if t.get('exists') and t.get('size', 0) > 0]
-
-    if not available:
-        print(colored("  Nenhum item para limpar encontrado.", 'green'))
-        input("\n  Pressione Enter para voltar...")
-        return
-
-    print(colored(f"  {'Nº':<4s} {'CATEGORIA':<16s} {'ITEM':<34s} {'TAMANHO':>10s}", 'cyan', bold=True))
-    print(colored("  " + "-" * 66, 'cyan'))
-
-    for idx, t in available:
-        size_str = format_bytes(t['size'])
-        cor = 'red' if t['size'] > 500*1024**2 else 'yellow'
-        print(f"  {idx:<4d} {t['category']:<16s} {t['name']:<34s} {colored(size_str.rjust(10), cor)}")
-
-    print()
-    print(colored("  Digite números separados por vírgula (ex: 1,3,5)", 'dim'))
-    print(colored("  [T]udo  |  [0] Cancelar", 'dim'))
-    choice = input(PROMPT).strip().upper()
-
-    if choice in ('', '0'):
-        return
-
-    if choice == 'T':
-        selected = [t[1] for t in available]
-    else:
-        indices = set()
-        for part in choice.split(','):
-            part = part.strip()
-            if part.isdigit():
-                num = int(part)
-                if 1 <= num <= len(targets):
-                    indices.add(num)
-        selected = [targets[i-1] for i in sorted(indices)]
-
-    if not selected:
-        print(colored("  Nenhum item válido.", 'red'))
-        input("  Pressione Enter...")
-        return
-
-    total_est = sum(t['size'] for t in selected if t.get('exists', False))
-    print(colored(f"\n  Limpando {len(selected)} alvo(s) — ~{format_bytes(total_est)} estimado\n", 'yellow'))
-
-    items, freed = clean_targets(selected)
-
-    print(colored(f"\n  ✅  Concluído! {items} itens limpos, {format_bytes(freed)} liberados.", 'green'))
-    input("\n  Pressione Enter para voltar...")
-
-
-def orphan_hunter():
-    print_header()
-    print(colored("  CAÇAR LIXO DE PROGRAMAS DESINSTALADOS\n", 'yellow', bold=True))
     print(colored("  Varrendo pastas e comparando com programas instalados...\n", 'dim'))
 
     orphans, installed = scan_orphans(progress_callback=make_progress())
     print("\n")
 
     if not installed:
-        print(colored("  ⚠️  Não foi possível obter lista de programas instalados.", 'red'))
+        print(colored("  Não foi possível obter lista de programas instalados.", 'red'))
         print(colored("  Tente executar como Administrador.", 'yellow'))
-        input("\n  Pressione Enter para voltar...")
+        input("\n  Pressione Enter para sair...")
         return
 
     print(colored(f"  Programas detectados: {len(installed)}", 'dim'))
     print(colored(f"  Pastas suspeitas encontradas: {len(orphans)}\n", 'yellow'))
 
     if not orphans:
-        print(colored("  ✅ Nenhuma pasta órfã encontrada!", 'green'))
-        input("\n  Pressione Enter para voltar...")
+        print(colored("  Nenhuma pasta órfã encontrada!", 'green'))
+        input("\n  Pressione Enter para sair...")
         return
 
     print(colored(f"  {'Nº':<5s} {'PASTA':<55s} {'TAMANHO':>10s}", 'cyan', bold=True))
@@ -259,12 +66,12 @@ def orphan_hunter():
         print(colored(f"\n  ... e mais {len(orphans) - 30} pastas", 'dim'))
 
     total_size = sum(s for _, s in orphans)
-    print(colored(f"\n  Total estimado: {format_bytes(total_size)}", 'bold'))
+    print(colored(f"\n  Total estimado: {format_bytes(total_size)}", 'bold', bold=True))
 
     print()
     print(colored("  Digite números para enviar à lixeira (ex: 1,3,5)", 'dim'))
-    print(colored("  [T]udo  |  [0] Cancelar", 'dim'))
-    choice = input(PROMPT).strip().upper()
+    print(colored("  [T]udo  |  [Enter] Sair", 'dim'))
+    choice = input("  Escolha: ").strip().upper()
 
     if choice in ('', '0'):
         return
@@ -292,36 +99,14 @@ def orphan_hunter():
     print(colored(f"\n  Enviando {len(selected)} pasta(s) para lixeira... (~{format_bytes(total_sel)})", 'yellow'))
     success, freed = send_to_trash(paths_to_delete)
 
-    print(colored(f"\n  ✅  {success} pasta(s) enviadas para lixeira. {format_bytes(freed)} liberados.", 'green'))
-    input("\n  Pressione Enter para voltar...")
-
-
-def show_disk_space():
-    print_header()
-    print(colored("  ESPAÇO LIVRE NOS DISCOS\n", 'yellow', bold=True))
-
-    drives = get_disk_usage()
-    if not drives:
-        print(colored("  Não foi possível obter informações dos discos.", 'red'))
-    else:
-        print(colored(f"  {'UNIDADE':<10s} {'TOTAL':>10s} {'USADO':>10s} {'LIVRE':>10s} {'USO':>8s}", 'cyan', bold=True))
-        print(colored("  " + "-" * 50, 'cyan'))
-        for d in drives:
-            bar_len = 14
-            filled = int(bar_len * d['percent'] / 100)
-            bar = '█' * filled + '░' * (bar_len - filled)
-            cor = 'red' if d['percent'] > 85 else ('yellow' if d['percent'] > 60 else 'green')
-            pct_str = f"{d['percent']:>5.1f}%"
-            print(f"  {d['drive']:<10s} {format_bytes(d['total']):>10s} {format_bytes(d['used']):>10s} {format_bytes(d['free']):>10s} {colored(pct_str, cor):>8s}")
-            print(f"  {'':<10s} [{bar}]")
-
-    input(colored("\n  Pressione Enter para voltar...", 'dim'))
+    print(colored(f"\n  {success} pasta(s) enviadas para lixeira. {format_bytes(freed)} liberados.", 'green'))
+    input("\n  Pressione Enter para sair...")
 
 
 if __name__ == '__main__':
     enable_ansi()
     try:
-        main_menu()
+        main()
     except KeyboardInterrupt:
         print(colored("\n\n  Programa interrompido pelo usuário.", 'yellow'))
         sys.exit(0)
