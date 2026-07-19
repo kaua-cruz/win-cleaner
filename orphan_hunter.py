@@ -141,6 +141,27 @@ def is_program_installed(folder_name, installed_names, appx_names):
     return False
 
 
+SYSTEM_PROTECTED = {
+    'temp', 'programs', 'packages', 'comms', 'connecteddevicesplatform',
+}
+
+
+def is_protected_path(entry_path, entry_name):
+    name_lower = entry_name.lower()
+
+    # Skip Temp e Programs APENAS dentro de AppData\Local
+    if name_lower in ('temp', 'programs'):
+        parent = os.path.basename(os.path.dirname(entry_path)).lower()
+        if parent == 'local':
+            return True
+
+    # Skip Packages, Comms, ConnectedDevicesPlatform em qualquer profundidade
+    if name_lower in ('packages', 'comms', 'connecteddevicesplatform'):
+        return True
+
+    return False
+
+
 def scan_directory_for_orphans(path, installed_names, appx_names):
     orphans = []
     if not os.path.exists(path):
@@ -156,6 +177,8 @@ def scan_directory_for_orphans(path, installed_names, appx_names):
                 if name.startswith('$') or name.startswith('.'):
                     continue
                 if is_windows_folder(name):
+                    continue
+                if is_protected_path(entry.path, name):
                     continue
                 if not is_program_installed(name, installed_names, appx_names):
                     size = get_dir_size(entry.path)
@@ -174,12 +197,12 @@ def scan_orphans(progress_callback=None):
     system_root = os.environ.get('SystemRoot', 'C:\\Windows')
 
     scan_targets = [
-        os.path.join(system_root, '..', 'ProgramData'),
-        os.path.join(system_root, '..', 'Program Files'),
-        os.path.join(system_root, '..', 'Program Files (x86)'),
-        str(home / 'AppData' / 'Local'),
-        str(home / 'AppData' / 'Roaming'),
-        str(home / 'AppData' / 'Local' / 'Programs'),
+        os.path.abspath(os.path.join(system_root, '..', 'ProgramData')),
+        os.path.abspath(os.path.join(system_root, '..', 'Program Files')),
+        os.path.abspath(os.path.join(system_root, '..', 'Program Files (x86)')),
+        os.path.abspath(str(home / 'AppData' / 'Local')),
+        os.path.abspath(str(home / 'AppData' / 'Roaming')),
+        os.path.abspath(str(home / 'AppData' / 'Local' / 'Programs')),
     ]
 
     all_orphans = []
