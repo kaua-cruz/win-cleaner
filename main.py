@@ -4,6 +4,7 @@ import shutil
 from utils import colored, format_bytes, enable_ansi
 from orphan_hunter import scan_orphans
 from trash import send_to_trash
+from restore import show_recycle_bin_menu
 
 
 def print_header():
@@ -71,8 +72,12 @@ def main():
 
     print()
     print(colored("  Digite números para enviar à lixeira (ex: 1,3,5)", 'dim'))
-    print(colored("  [T]udo  |  [Enter] Sair", 'dim'))
+    print(colored("  [T]udo  |  [L] Ver lixeira  |  [Enter] Sair", 'dim'))
     choice = input("  Escolha: ").strip().upper()
+
+    if choice == 'L':
+        show_recycle_bin_menu()
+        return
 
     if choice in ('', '0'):
         return
@@ -113,7 +118,11 @@ def main():
     print(f"  Espaço livre:     {format_bytes(after.free)}")
     print(colored("  " + "=" * 48, 'cyan'))
     print()
-    input("  Pressione Enter para sair...")
+
+    print(colored("  [L] Ver lixeira e restaurar itens  |  [Enter] Sair", 'dim'))
+    choice = input("  Escolha: ").strip().upper()
+    if choice == 'L':
+        show_recycle_bin_menu()
 
 
 if __name__ == '__main__':
