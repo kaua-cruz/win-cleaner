@@ -105,6 +105,18 @@ def get_appx_packages():
     return packages
 
 
+NAME_ALIASES = {
+    'postgresql': ['postgresql'],
+    'dotnet': ['.net', 'dotnet'],
+    'vulkanrt': ['vulkan'],
+    'rust': ['rust'],
+}
+
+KNOWN_FALSE_POSITIVES = {
+    'usoshared', 'usoprivate', 'ruxim',
+}
+
+
 def normalize(name):
     name = name.lower()
     name = re.sub(r'[^a-z0-9]', '', name)
@@ -128,15 +140,22 @@ def is_program_installed(folder_name, installed_names, appx_names):
     if not fnorm or len(fnorm) < 3:
         return True
 
-    for prog in installed_names:
-        pnorm = normalize(prog)
+    installed_norm = {normalize(p) for p in installed_names}
+    appx_norm = {normalize(p) for p in appx_names}
+    all_names = installed_norm | appx_norm
+
+    # Verifica nome da pasta contra todos os programas
+    for pnorm in all_names:
         if fnorm in pnorm or pnorm in fnorm:
             return True
 
-    for pkg in appx_names:
-        pnorm = normalize(pkg)
-        if fnorm in pnorm or pnorm in fnorm:
-            return True
+    # Verifica aliases do nome da pasta
+    if fnorm in NAME_ALIASES:
+        for alias in NAME_ALIASES[fnorm]:
+            anorm = normalize(alias)
+            for pnorm in all_names:
+                if anorm in pnorm or pnorm in anorm:
+                    return True
 
     return False
 
@@ -179,6 +198,8 @@ def scan_directory_for_orphans(path, installed_names, appx_names):
                 if is_windows_folder(name):
                     continue
                 if is_protected_path(entry.path, name):
+                    continue
+                if normalize(name) in KNOWN_FALSE_POSITIVES:
                     continue
                 if not is_program_installed(name, installed_names, appx_names):
                     size = get_dir_size(entry.path)
