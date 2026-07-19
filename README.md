@@ -1,29 +1,30 @@
 # win-cleaner 🧹
 
-Ferramenta de limpeza do Windows via terminal. Escaneia pastas, mostra o espaço ocupado e envia arquivos para a lixeira com segurança.
+Ferramenta que **caça e limpa pastas órfãs** deixadas por programas desinstalados no Windows. Compara pastas em `Program Files`, `ProgramData` e `AppData` contra a lista de programas instalados — tudo que não bate é candidato a lixo. Também lê a lixeira e permite restaurar itens.
 
 ## Funcionalidades
 
-- **Varredura rápida** — escaneia as pastas do usuário (Desktop, Downloads, Documents, AppData, etc.)
-- **Varredura completa** — escaneia qualquer diretório ou disco inteiro com navegação interativa
-- **Limpeza de lixo** — remove arquivos temporários do Windows, cache de navegadores, prefetch e mais
-- **Espaço nos discos** — mostra uso de todas as unidades com barra visual
+- **Caça lixo de programas desinstalados** — varre `Program Files`, `Program Files (x86)`, `ProgramData`, `AppData\Local`, `AppData\Roaming` e cruza com o Registro do Windows
+- **Matching inteligente** — usa aliases de nomes (`dotnet` ↔ `.NET`, `vulkanrt` ↔ `Vulkan`) e filtro de falsos positivos
+- **Envio seguro para lixeira** — usa `send2trash`, nada é deletado permanentemente
+- **Leitura da lixeira** — lista itens com caminho original e permite restaurar
+- **Resumo da limpeza** — mostra espaço liberado e espaço livre no disco
 
 ## Instalação
 
 ```bash
-git clone https://github.com/seu-usuario/win-cleaner.git
+git clone https://github.com/kaua-cruz/win-cleaner.git
 cd win-cleaner
 pip install send2trash
 python main.py
 ```
 
-> ⚠️  Para limpar pastas do sistema (Windows Temp, Prefetch), execute como **Administrador**.
+> ⚠️  Execute como **Administrador** para acessar todas as pastas do sistema.
 
 ## Dependências
 
 - Python 3.7+
-- [send2trash](https://github.com/arsenetar/send2trash) — envia arquivos para a lixeira do Windows com segurança
+- [send2trash](https://github.com/arsenetar/send2trash)
 
 ## Licença
 
