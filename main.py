@@ -5,6 +5,7 @@ from utils import (
 )
 from scanner import scan_top_level, scan_user_folders, drill_down
 from cleaner import get_cleanup_targets, estimate_sizes, clean_targets
+from orphan_hunter import scan_orphans
 
 
 PROMPT = "  Escolha uma opção: "
@@ -42,26 +43,29 @@ def main_menu():
         print_header()
         print("  [1] Varredura rápida (pastas do usuário)")
         print("  [2] Varredura completa (disco ou pasta)")
-        print("  [3] Limpeza de lixo do sistema")
-        print("  [4] Espaço livre nos discos")
-        print("  [5] Sair")
-        print()
+    print("  [3] Limpeza de lixo do sistema")
+    print("  [4] Espaço livre nos discos")
+    print("  [5] Caçar lixo de programas desinstalados")
+    print("  [6] Sair")
+    print()
 
-        choice = input(PROMPT).strip()
+    choice = input(PROMPT).strip()
 
-        if choice == '1':
-            quick_scan()
-        elif choice == '2':
-            full_scan()
-        elif choice == '3':
-            system_cleanup()
-        elif choice == '4':
-            show_disk_space()
-        elif choice == '5':
-            print(colored("\n  Até mais! 💻", 'green'))
-            sys.exit(0)
-        else:
-            input(colored("  Opção inválida! Pressione Enter...", 'red'))
+    if choice == '1':
+        quick_scan()
+    elif choice == '2':
+        full_scan()
+    elif choice == '3':
+        system_cleanup()
+    elif choice == '4':
+        show_disk_space()
+    elif choice == '5':
+        orphan_hunter()
+    elif choice == '6':
+        print(colored("\n  Até mais! 💻", 'green'))
+        sys.exit(0)
+    else:
+        input(colored("  Opção inválida! Pressione Enter...", 'red'))
 
 
 def quick_scan():
@@ -217,6 +221,78 @@ def system_cleanup():
     items, freed = clean_targets(selected)
 
     print(colored(f"\n  ✅  Concluído! {items} itens limpos, {format_bytes(freed)} liberados.", 'green'))
+    input("\n  Pressione Enter para voltar...")
+
+
+def orphan_hunter():
+    print_header()
+    print(colored("  CAÇAR LIXO DE PROGRAMAS DESINSTALADOS\n", 'yellow', bold=True))
+    print(colored("  Varrendo pastas e comparando com programas instalados...\n", 'dim'))
+
+    orphans, installed = scan_orphans(progress_callback=make_progress())
+    print("\n")
+
+    if not installed:
+        print(colored("  ⚠️  Não foi possível obter lista de programas instalados.", 'red'))
+        print(colored("  Tente executar como Administrador.", 'yellow'))
+        input("\n  Pressione Enter para voltar...")
+        return
+
+    print(colored(f"  Programas detectados: {len(installed)}", 'dim'))
+    print(colored(f"  Pastas suspeitas encontradas: {len(orphans)}\n", 'yellow'))
+
+    if not orphans:
+        print(colored("  ✅ Nenhuma pasta órfã encontrada!", 'green'))
+        input("\n  Pressione Enter para voltar...")
+        return
+
+    print(colored(f"  {'Nº':<5s} {'PASTA':<55s} {'TAMANHO':>10s}", 'cyan', bold=True))
+    print(colored("  " + "-" * 72, 'cyan'))
+
+    for i, (path, size) in enumerate(orphans[:30], 1):
+        name = path if len(path) <= 52 else f"...{path[-49:]}"
+        size_str = format_bytes(size)
+        cor = 'red' if size > 500*1024**2 else ('yellow' if size > 50*1024**2 else 'green')
+        print(f"  {i:<5d} {name:<55s} {colored(size_str.rjust(10), cor)}")
+
+    if len(orphans) > 30:
+        print(colored(f"\n  ... e mais {len(orphans) - 30} pastas", 'dim'))
+
+    total_size = sum(s for _, s in orphans)
+    print(colored(f"\n  Total estimado: {format_bytes(total_size)}", 'bold'))
+
+    print()
+    print(colored("  Digite números para enviar à lixeira (ex: 1,3,5)", 'dim'))
+    print(colored("  [T]udo  |  [0] Cancelar", 'dim'))
+    choice = input(PROMPT).strip().upper()
+
+    if choice in ('', '0'):
+        return
+
+    if choice == 'T':
+        selected = orphans
+    else:
+        indices = set()
+        for part in choice.split(','):
+            part = part.strip()
+            if part.isdigit():
+                num = int(part)
+                if 1 <= num <= len(orphans):
+                    indices.add(num)
+        selected = [orphans[i-1] for i in sorted(indices)]
+
+    if not selected:
+        print(colored("  Nenhum item válido.", 'red'))
+        input("  Pressione Enter...")
+        return
+
+    paths_to_delete = [p for p, _ in selected]
+    total_sel = sum(s for _, s in selected)
+
+    print(colored(f"\n  Enviando {len(selected)} pasta(s) para lixeira... (~{format_bytes(total_sel)})", 'yellow'))
+    success, freed = send_to_trash(paths_to_delete)
+
+    print(colored(f"\n  ✅  {success} pasta(s) enviadas para lixeira. {format_bytes(freed)} liberados.", 'green'))
     input("\n  Pressione Enter para voltar...")
 
 
