@@ -1,5 +1,6 @@
 import os
 import sys
+import shutil
 from utils import colored, format_bytes, enable_ansi
 from orphan_hunter import scan_orphans
 from trash import send_to_trash
@@ -96,11 +97,23 @@ def main():
     paths_to_delete = [p for p, _ in selected]
     total_sel = sum(s for _, s in selected)
 
+    before = shutil.disk_usage(os.path.splitdrive(paths_to_delete[0])[0] + '\\')
     print(colored(f"\n  Enviando {len(selected)} pasta(s) para lixeira... (~{format_bytes(total_sel)})", 'yellow'))
     success, freed = send_to_trash(paths_to_delete)
 
-    print(colored(f"\n  {success} pasta(s) enviadas para lixeira. {format_bytes(freed)} liberados.", 'green'))
-    input("\n  Pressione Enter para sair...")
+    after = shutil.disk_usage(os.path.splitdrive(paths_to_delete[0])[0] + '\\')
+    diff = after.free - before.free
+
+    print()
+    print(colored("  " + "=" * 48, 'cyan'))
+    print(colored("  RESUMO DA LIMPEZA", 'green', bold=True))
+    print(colored("  " + "=" * 48, 'cyan'))
+    print(f"  Pastas enviadas:  {success}")
+    print(f"  Espaço liberado:  {colored(format_bytes(diff), 'green', bold=True)}")
+    print(f"  Espaço livre:     {format_bytes(after.free)}")
+    print(colored("  " + "=" * 48, 'cyan'))
+    print()
+    input("  Pressione Enter para sair...")
 
 
 if __name__ == '__main__':
